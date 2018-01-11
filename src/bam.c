@@ -4,7 +4,7 @@
 #include <gsl/gsl_matrix.h>
 #include "include/bam.h"
 
-#define LAMBDA 100
+#define LAMBDA (5)
 
 void activate_m(gsl_matrix *Y);
 double F(double S);
@@ -14,8 +14,7 @@ void transform_to_matrix(const gsl_matrix const *X, gsl_matrix *A);
 void write_matrix(const gsl_matrix *matrix, FILE *file);
 
 double F(double S) {
-    //return 1 / (1 + exp(LAMBDA * S));
-    return S > 0 ? 1 : 0;
+    return 1 / (1 + exp(-LAMBDA * S)) >= 0.5 ? 1 : -1;
 }
 
 int BAM_max_vectors_count(int n) {
@@ -89,10 +88,15 @@ int BAM_add(BAM_model *model, gsl_matrix *A, gsl_matrix *B) {
     transform_to_bipolar_vector(A, model->X);
     transform_to_bipolar_vector(B, model->Y);
 
+    PRINT_MATRIX(model->X);
+    PRINT_MATRIX(model->Y);
+
     ret_val = gsl_blas_dgemm(CblasTrans, CblasNoTrans,
-                   1, model->X, model->Y,
-                   1, model->W);
+                             1, model->X, model->Y,
+                             1, model->W);
     if(0 != ret_val) return ALG_ERR;
+
+    PRINT_MATRIX(model->W);
 
     model->useful_capacity--;
 
@@ -181,6 +185,7 @@ int BAM_associate_left(BAM_model *model, const gsl_matrix const*A, gsl_matrix *B
 
     gsl_matrix *X_prev = NULL;
     gsl_matrix *X_prev_prev = NULL;
+    int iter = 0;
 
     X_prev = gsl_matrix_alloc(model->X->size1, model->X->size2);
     if(NULL == X_prev) return MEM_ERR;
@@ -194,8 +199,6 @@ int BAM_associate_left(BAM_model *model, const gsl_matrix const*A, gsl_matrix *B
                                  0, model->Y);
         if (0 != ret_val) return ALG_ERR;
 
-        activate_m(model->Y);
-
         gsl_matrix_memcpy(X_prev_prev, X_prev);
         gsl_matrix_memcpy(X_prev, model->X);
 
@@ -206,10 +209,13 @@ int BAM_associate_left(BAM_model *model, const gsl_matrix const*A, gsl_matrix *B
 
         activate_m(model->X);
 
+        iter++;
     } while(!(gsl_matrix_equal(X_prev, model->X)
               || gsl_matrix_equal(X_prev_prev, model->X)));
 
     transform_to_matrix(model->Y, B);
+
+    printf("iterations: %d\n", iter);
 
     gsl_matrix_free(X_prev);
     gsl_matrix_free(X_prev_prev);
@@ -232,11 +238,12 @@ int BAM_associate_right(BAM_model *model, gsl_matrix *A, const gsl_matrix const 
 
     gsl_matrix *Y_prev = NULL;
     gsl_matrix *Y_prev_prev = NULL;
+    int iter = 0;
 
-    Y_prev = gsl_matrix_alloc(B->size1, B->size2);
+    Y_prev = gsl_matrix_alloc(model->Y->size1, model->Y->size2);
     if(NULL == Y_prev) return MEM_ERR;
 
-    Y_prev_prev = gsl_matrix_alloc(B->size1, B->size2);
+    Y_prev_prev = gsl_matrix_alloc(model->Y->size1, model->Y->size2);
     if(NULL == Y_prev_prev) return MEM_ERR;
 
     do {
@@ -257,8 +264,12 @@ int BAM_associate_right(BAM_model *model, gsl_matrix *A, const gsl_matrix const 
 
         activate_m(model->Y);
 
+        iter++;
+
     } while(!(gsl_matrix_equal(Y_prev, model->Y)
               || gsl_matrix_equal(Y_prev_prev, model->Y)));
+
+    printf("iterations: %d\n", iter);
 
     transform_to_matrix(model->X, A);
 

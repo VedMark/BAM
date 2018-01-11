@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
             }
 
             printf("useful capacity: %d\n",
-                   BAM_max_vectors_count((int) (MIN(N, M))));
+                   BAM_max_vectors_count((int) (MIN(N * M, M * P))));
 
             break;
 
@@ -186,6 +186,8 @@ int main(int argc, char **argv) {
                 return 1;
             };
 
+            printf("--associating\n");
+
             BAM_load(bam_model, argv[4]);
 
             fscanf(fileA, "%zu %zu", &nA, &mA);
@@ -197,7 +199,7 @@ int main(int argc, char **argv) {
             A = gsl_matrix_alloc(nA, mA);
             gsl_matrix_fscanf(fileA, A);
 
-            B = gsl_matrix_alloc(bam_model->P, bam_model->M);
+            B = gsl_matrix_alloc(bam_model->M, bam_model->P);
             if(NULL == B) {
                 fprintf(stderr, "internal memory error\n");
                 return 1;
@@ -233,6 +235,8 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "could not open: %s\n", argv[3]);
                 return 1;
             };
+
+            printf("--associating\n");
 
             BAM_load(bam_model, argv[4]);
 
@@ -288,7 +292,7 @@ void print_matrix(const gsl_matrix *M, FILE *file) {
     for(size_t i = 0; i < M->size1; ++i) {
         for (size_t j = 0; j < M->size2; ++j) {
             number = (int) gsl_matrix_get(M, i, j);
-            fprintf(file, "%d ", number);
+            fprintf(file, "%d ", number == 1 ? 1 : 0);
         }
         fprintf(file, "\n");
     }
